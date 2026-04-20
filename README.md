@@ -14,3 +14,17 @@ server (e.g. `python -m http.server`).
 ## Live site
 
 Hosted via GitHub Pages — see the repo's **Settings → Pages** for the URL.
+
+## Where your data lives
+
+Cards, comments, photos and notes are saved in your **browser's localStorage**
+for the site's origin. That means:
+
+- Tasks **persist across site updates** — pushing new code doesn't wipe the board.
+- Data is **per-browser and per-device** — Orla's iPad and Eliza's laptop each have
+  their own copy.
+- If you clear site data in your browser settings, or use a different browser, the
+  board will be empty on that device.
+
+Use **Export backup** (footer) to download a JSON file of the board, and
+**Import backup** to restore it on another device or after clearing data.

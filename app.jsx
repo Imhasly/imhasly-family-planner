@@ -173,6 +173,33 @@ function App() {
 
   const setPhoto = (cardId, dataUrl) => editCard(cardId, { photo: dataUrl });
 
+  const exportBackup = () => {
+    const json = JSON.stringify(state, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'imhasly-family-planner-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importBackup = async (file) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || !Array.isArray(parsed.cards)) throw new Error('invalid');
+      const ok = confirm('Import ' + parsed.cards.length + ' cards? This will replace the current board.');
+      if (!ok) return;
+      parsed.cards = parsed.cards.map(c => ({ comments: [], photo: null, mins: 0, notes: '', ...c }));
+      setState(parsed);
+    } catch (e) {
+      alert('That does not look like a valid backup file.');
+    }
+  };
+
   return (
     <div className="app">
       <header className="topbar">
@@ -219,7 +246,21 @@ function App() {
       )}
 
       <div className="footer-note">
-        auto-saved · click a card to edit · drag between columns ✨
+        <span>auto-saved to this browser · click a card to edit</span>
+        <span className="footer-dot">·</span>
+        <button className="footer-link" onClick={exportBackup} title="Download a JSON backup">
+          export backup
+        </button>
+        <span className="footer-dot">·</span>
+        <label className="footer-link" title="Restore from a JSON backup">
+          import backup
+          <input
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) importBackup(f); e.target.value=''; }}
+          />
+        </label>
       </div>
 
       {openCard && (
