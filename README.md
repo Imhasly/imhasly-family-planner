@@ -1,6 +1,6 @@
 # The Imhasly Family Planner
 
-A simple, fun kanban board for Orla (14), Eliza (12) and Maya (10).
+A simple, fun kanban board for Orla (14), Eliza (12) and Maya (9).
 
 Each girl has her own colour and her own board — **To Do**, **Doing**, **Done** — for
 activities, jobs around the home, and home-ed learning. Drag cards between columns,

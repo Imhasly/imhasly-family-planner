@@ -78,7 +78,7 @@ function normalizeState(s) {
 const GIRLS = [
   { id: 'orla',  name: 'Orla',  age: 14, initial: 'O' },
   { id: 'eliza', name: 'Eliza', age: 12, initial: 'E' },
-  { id: 'maya',  name: 'Maya',  age: 10, initial: 'M' },
+  { id: 'maya',  name: 'Maya',  age: 9,  initial: 'M' },
 ];
 
 const COLUMNS = [
