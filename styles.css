@@ -264,6 +264,10 @@ input, textarea, select { font-family: inherit; }
   line-height: 1;
   color: var(--girl-deep);
 }
+.hero-stat .n.time {
+  font-size: 26px;
+  font-style: italic;
+}
 .hero-stat .label {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -409,6 +413,14 @@ input, textarea, select { font-family: inherit; }
   justify-content: space-between;
   gap: 8px;
 }
+.kcard-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
 .tag {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -422,6 +434,23 @@ input, textarea, select { font-family: inherit; }
 .tag.home { background: #f5e7d8; color: #8a6e42; }
 .tag.learning { background: #e0e6f2; color: #4a5a7e; }
 .tag.fun { background: #f7dce8; color: #8a4e6d; }
+
+.time-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+  background: var(--girl-wash);
+  color: var(--girl-deep);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.notes-chip {
+  font-size: 11px;
+  color: var(--ink-3);
+  opacity: 0.7;
+}
 
 .kcard-actions {
   display: flex;
@@ -483,26 +512,48 @@ input, textarea, select { font-family: inherit; }
 }
 .add-card-expanded input:focus { outline: none; }
 
-.emoji-row, .tag-row {
+.emoji-row, .tag-row, .time-row {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
-.emoji-pick, .tag-pick {
-  padding: 4px 8px;
-  border-radius: 6px;
+.emoji-pick, .tag-pick, .time-pick {
+  padding: 6px 10px;
+  border-radius: 8px;
   background: var(--bg);
   border: 1px solid var(--line);
   font-size: 15px;
   transition: all 0.12s;
+  min-height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.emoji-pick:hover, .tag-pick:hover { border-color: var(--girl); }
-.emoji-pick.selected, .tag-pick.selected {
+.emoji-pick:hover, .tag-pick:hover, .time-pick:hover { border-color: var(--girl); }
+.emoji-pick.selected, .tag-pick.selected, .time-pick.selected {
   background: var(--girl-wash);
   border-color: var(--girl);
+  color: var(--girl-deep);
 }
-.tag-pick { font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 10px; }
+.tag-pick, .time-pick {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  font-weight: 500;
+}
+
+.pick-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 4px 0 4px;
+}
 
 .add-card-buttons {
   display: flex;
@@ -623,6 +674,22 @@ input, textarea, select { font-family: inherit; }
   color: var(--ink-3);
   margin-top: 3px;
 }
+.family-card-head { justify-content: flex-start; }
+.family-time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink-2);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+.family-card.orla  .family-time { background: var(--orla-wash);  color: var(--orla-deep);  }
+.family-card.eliza .family-time { background: var(--eliza-wash); color: var(--eliza-deep); }
+.family-card.maya  .family-time { background: var(--maya-wash);  color: var(--maya-deep);  }
+.family-time .clock { margin-right: 2px; }
 
 .family-stats { display: flex; gap: 18px; margin-bottom: 14px; }
 .family-stats .s { display: flex; flex-direction: column; gap: 2px; }
@@ -776,6 +843,29 @@ input, textarea, select { font-family: inherit; }
 
 .drawer .emoji-row,
 .drawer .tag-row { margin-bottom: 0; }
+
+/* Notes */
+.notes-area {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.45;
+  transition: all 0.15s;
+}
+.notes-area::placeholder { color: var(--ink-3); }
+.notes-area:focus {
+  outline: none;
+  background: #fff;
+  border-color: var(--girl);
+  box-shadow: 0 0 0 3px var(--girl-wash);
+}
 
 /* Photo */
 .photo-wrap {
@@ -961,17 +1051,100 @@ input, textarea, select { font-family: inherit; }
   letter-spacing: 0.06em;
 }
 
-/* ───── Responsive ───── */
-@media (max-width: 920px) {
-  .board { grid-template-columns: 1fr; }
-  .family-grid { grid-template-columns: 1fr; }
-  .hero { flex-wrap: wrap; }
-  .hero-stats { width: 100%; justify-content: space-around; }
+/* ───── Touch-device friendliness ───── */
+@media (hover: none) {
+  /* No hover — show actions persistently */
+  .kcard-close, .comment-del { opacity: 1; }
+  .kcard:hover { transform: none; }
+  .family-card:hover { transform: none; }
+
+  /* Bigger tap targets for column-move arrows */
+  .kcard-move {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+    background: var(--girl-wash);
+    color: var(--girl-deep);
+  }
+  .kcard-close { width: 30px; height: 30px; font-size: 18px; }
+  .s-check, .kcard-close { -webkit-tap-highlight-color: transparent; }
+  .girl-tab { padding: 10px 16px 10px 8px; }
+  .girl-tab .avatar { width: 32px; height: 32px; }
+  .emoji-pick, .tag-pick, .time-pick { min-height: 40px; padding: 8px 14px; }
+  .emoji-pick { font-size: 18px; }
+  .close-x { width: 40px; height: 40px; }
+  .btn { padding: 10px 16px; }
+  .btn.small { padding: 8px 14px; }
 }
+
+/* iOS: stop safari from zooming on input focus (inputs need >=16px) */
+input, textarea, select { font-size: 16px; }
+.add-card-input, .kcard-title, .tag, .tag-pick, .time-pick, .time-chip,
+.comment-text, .comment-meta, .section-label, .label, .age, .eyebrow,
+.empty, .footer-note, .cal-label, .cal-head, .tabs button, .girl-tab .age,
+.comment-badge, .notes-chip, .greeting, .count, .doing-label {
+  /* these stay at their design sizes via more specific rules — above is just the baseline */
+}
+/* Prevent text selection during drag on touch */
+.kcard { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.kcard-title, .comment-text, .notes-area { -webkit-user-select: text; user-select: text; }
+
+/* ───── Responsive ───── */
+@media (max-width: 1080px) {
+  .app { padding: 24px 24px 80px; }
+}
+
+/* iPad portrait and narrower */
+@media (max-width: 900px) {
+  .board { grid-template-columns: 1fr; gap: 14px; }
+  .column { min-height: 240px; }
+  .family-grid { grid-template-columns: 1fr; }
+  .hero { flex-wrap: wrap; gap: 14px; }
+  .hero-stats { width: 100%; justify-content: space-between; }
+  .hero-stat .n { font-size: 30px; }
+  .hero-stat .n.time { font-size: 22px; }
+  .brand h1 { font-size: 36px; }
+  .hero-meta h2 { font-size: 26px; }
+  .topbar { gap: 16px; }
+  .girl-tabs { width: 100%; }
+  .girl-tab { flex: 1; min-width: 0; justify-content: center; }
+  .girl-tab span:not(.avatar):not(.age) { flex: 0 0 auto; }
+}
+
+/* iPhone */
 @media (max-width: 640px) {
-  .app { padding: 16px; }
-  .brand h1 { font-size: 30px; }
-  .hero-meta h2 { font-size: 24px; }
-  .girl-tab { font-size: 13px; padding: 6px 12px 6px 6px; }
-  .girl-tab .avatar { width: 24px; height: 24px; font-size: 12px; }
+  .app { padding: 14px 14px 80px; }
+  .brand h1 { font-size: 28px; letter-spacing: -0.02em; }
+  .brand .eyebrow { font-size: 10px; }
+  .hero { padding: 18px 18px; }
+  .hero-avatar { width: 52px; height: 52px; font-size: 24px; }
+  .hero-meta h2 { font-size: 22px; }
+  .hero-stats { gap: 14px; }
+  .hero-stat { flex: 1; align-items: center; }
+  .hero-stat .n { font-size: 24px; }
+  .hero-stat .n.time { font-size: 18px; }
+  .hero-stat .label { font-size: 9px; }
+  .girl-tab { font-size: 13px; padding: 8px 12px 8px 6px; }
+  .girl-tab .avatar { width: 26px; height: 26px; font-size: 12px; }
+  .girl-tab .age { display: none; }
+  .column { padding: 12px; min-height: 200px; }
+  .column-head h3 { font-size: 17px; }
+  .kcard { padding: 12px; }
+  .kcard-title { font-size: 14px; }
+  .drawer { max-width: 100%; max-height: 94vh; border-radius: 16px; }
+  .drawer-head { padding: 14px 16px; }
+  .drawer-title { font-size: 20px; }
+  .drawer-body { padding: 14px 16px 20px; }
+  .emoji-pick { font-size: 20px; min-height: 42px; min-width: 42px; }
+  .comment-compose { flex-wrap: wrap; }
+  .comment-compose select { flex: 1 0 100px; }
+  .comment-compose input { flex: 1 0 100%; order: 3; }
+  .comment-compose .btn { flex: 1 0 auto; order: 4; }
+  .family-card-head { flex-wrap: wrap; }
+  .family-time { margin-left: 0; margin-top: 6px; }
+}
+
+/* Make the drop-zone area comfortable to tap on touch */
+@media (max-width: 900px) {
+  .card-list { min-height: 80px; }
 }

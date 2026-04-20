@@ -33,6 +33,16 @@ const AUTHORS = [
   { id: 'dad',   label: 'Dad'   },
 ];
 
+const TIME_PRESETS = [
+  { mins: 5,   label: '5m'       },
+  { mins: 15,  label: '15m'      },
+  { mins: 30,  label: '30m'      },
+  { mins: 60,  label: '1h'       },
+  { mins: 120, label: '2h'       },
+  { mins: 240, label: 'half day' },
+  { mins: 480, label: 'all day'  },
+];
+
 const EMOJIS = [
   '🎨','🎸','📚','⚽','🧁','🌳','🎮','🧩',
   '🎭','🏊','🔬','🌱','🎲','🚴','🍳','🐕',
@@ -54,7 +64,7 @@ function loadState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.cards)) {
-        parsed.cards = parsed.cards.map(c => ({ comments: [], photo: null, ...c }));
+        parsed.cards = parsed.cards.map(c => ({ comments: [], photo: null, mins: 0, notes: '', ...c }));
       }
       return parsed;
     }
@@ -73,20 +83,20 @@ function seedState() {
     activeGirl: 'orla',
     cards: [
       // Orla — 14
-      { id: uid(), girl: 'orla',  column: 'todo',  title: 'Sketchbook page — seascape',      tag: 'fun',      emoji: '🎨', order: 0 },
-      { id: uid(), girl: 'orla',  column: 'todo',  title: 'Tidy bedroom & change sheets',     tag: 'home',     emoji: '🧺', order: 1 },
-      { id: uid(), girl: 'orla',  column: 'doing', title: 'Marine Science revision block',   tag: 'learning', emoji: '🔬', order: 0 },
-      { id: uid(), girl: 'orla',  column: 'done',  title: 'Walk the dog',                    tag: 'activity', emoji: '🐕', order: 0 },
+      { id: uid(), girl: 'orla',  column: 'todo',  title: 'Sketchbook page — seascape',      tag: 'fun',      emoji: '🎨', mins: 30,  order: 0, comments: [], photo: null },
+      { id: uid(), girl: 'orla',  column: 'todo',  title: 'Tidy bedroom & change sheets',     tag: 'home',     emoji: '🧺', mins: 15,  order: 1, comments: [], photo: null },
+      { id: uid(), girl: 'orla',  column: 'doing', title: 'Marine Science revision block',   tag: 'learning', emoji: '🔬', mins: 60,  order: 0, comments: [], photo: null },
+      { id: uid(), girl: 'orla',  column: 'done',  title: 'Walk the dog',                    tag: 'activity', emoji: '🐕', mins: 30,  order: 0, comments: [], photo: null },
       // Eliza — 12
-      { id: uid(), girl: 'eliza', column: 'todo',  title: 'Finish guitar piece',             tag: 'fun',      emoji: '🎸', order: 0 },
-      { id: uid(), girl: 'eliza', column: 'todo',  title: 'Bake something new',              tag: 'home',     emoji: '🧁', order: 1 },
-      { id: uid(), girl: 'eliza', column: 'doing', title: 'Read next chapter',               tag: 'learning', emoji: '📖', order: 0 },
-      { id: uid(), girl: 'eliza', column: 'done',  title: 'Swim session',                    tag: 'activity', emoji: '🏊', order: 0 },
+      { id: uid(), girl: 'eliza', column: 'todo',  title: 'Finish guitar piece',             tag: 'fun',      emoji: '🎸', mins: 30,  order: 0, comments: [], photo: null },
+      { id: uid(), girl: 'eliza', column: 'todo',  title: 'Bake something new',              tag: 'home',     emoji: '🧁', mins: 60,  order: 1, comments: [], photo: null },
+      { id: uid(), girl: 'eliza', column: 'doing', title: 'Read next chapter',               tag: 'learning', emoji: '📖', mins: 30,  order: 0, comments: [], photo: null },
+      { id: uid(), girl: 'eliza', column: 'done',  title: 'Swim session',                    tag: 'activity', emoji: '🏊', mins: 60,  order: 0, comments: [], photo: null },
       // Maya — 10
-      { id: uid(), girl: 'maya',  column: 'todo',  title: 'Lego build — treehouse',          tag: 'fun',      emoji: '🧩', order: 0 },
-      { id: uid(), girl: 'maya',  column: 'todo',  title: 'Feed the chickens',               tag: 'home',     emoji: '🌱', order: 1 },
-      { id: uid(), girl: 'maya',  column: 'doing', title: 'Times tables practice',           tag: 'learning', emoji: '📚', order: 0 },
-      { id: uid(), girl: 'maya',  column: 'done',  title: 'Bike ride with Dad',              tag: 'activity', emoji: '🚴', order: 0 },
+      { id: uid(), girl: 'maya',  column: 'todo',  title: 'Lego build — treehouse',          tag: 'fun',      emoji: '🧩', mins: 60,  order: 0, comments: [], photo: null },
+      { id: uid(), girl: 'maya',  column: 'todo',  title: 'Feed the chickens',               tag: 'home',     emoji: '🌱', mins: 5,   order: 1, comments: [], photo: null },
+      { id: uid(), girl: 'maya',  column: 'doing', title: 'Times tables practice',           tag: 'learning', emoji: '📚', mins: 15,  order: 0, comments: [], photo: null },
+      { id: uid(), girl: 'maya',  column: 'done',  title: 'Bike ride with Dad',              tag: 'activity', emoji: '🚴', mins: 60,  order: 0, comments: [], photo: null },
     ],
   };
 }
@@ -112,7 +122,7 @@ function App() {
     const maxOrder = cards.length ? Math.max(...cards.map(c => c.order)) : -1;
     setState(s => ({
       ...s,
-      cards: [...s.cards, { id: uid(), girl: girlId, column: 'todo', order: maxOrder + 1, comments: [], photo: null, ...card }]
+      cards: [...s.cards, { id: uid(), girl: girlId, column: 'todo', order: maxOrder + 1, comments: [], photo: null, mins: 0, notes: '', ...card }]
     }));
   };
 
@@ -230,6 +240,7 @@ function App() {
 /* ───── Family overview ───── */
 
 function FamilyOverview({ state, onPick }) {
+  const totalPlanned = sumMins(state.cards.filter(c => c.column !== 'done'));
   return (
     <>
       <div className="hero">
@@ -247,6 +258,12 @@ function FamilyOverview({ state, onPick }) {
             <div className="n">{state.cards.filter(c => c.column === 'done').length}</div>
             <div className="label">done</div>
           </div>
+          {totalPlanned > 0 && (
+            <div className="hero-stat">
+              <div className="n time">{formatMinutes(totalPlanned)}</div>
+              <div className="label">planned</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -256,6 +273,7 @@ function FamilyOverview({ state, onPick }) {
           const doing = cards.filter(c => c.column === 'doing');
           const todo = cards.filter(c => c.column === 'todo');
           const done = cards.filter(c => c.column === 'done');
+          const planned = sumMins(cards.filter(c => c.column !== 'done'));
           return (
             <div key={g.id} className={'family-card ' + g.id} onClick={() => onPick(g.id)}>
               <div className="stripe" />
@@ -266,6 +284,11 @@ function FamilyOverview({ state, onPick }) {
                     <div className="name">{g.name}</div>
                     <div className="age">{g.age} years</div>
                   </div>
+                  {planned > 0 && (
+                    <div className="family-time" title="Planned time">
+                      <span className="clock">⏱</span> {formatMinutes(planned)}
+                    </div>
+                  )}
                 </div>
                 <div className="family-stats">
                   <div className="s"><div className="n">{todo.length}</div><div className="label">to do</div></div>
@@ -302,6 +325,7 @@ function GirlBoard({ girl, cards, onAdd, onMove, onDelete, onOpen }) {
   const todoCount = cards.filter(c => c.column === 'todo').length;
   const doingCount = cards.filter(c => c.column === 'doing').length;
   const doneCount = cards.filter(c => c.column === 'done').length;
+  const plannedMins = sumMins(cards.filter(c => c.column !== 'done'));
 
   return (
     <>
@@ -324,6 +348,12 @@ function GirlBoard({ girl, cards, onAdd, onMove, onDelete, onOpen }) {
             <div className="n">{doneCount}</div>
             <div className="label">done</div>
           </div>
+          {plannedMins > 0 && (
+            <div className="hero-stat">
+              <div className="n time">{formatMinutes(plannedMins)}</div>
+              <div className="label">planned</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -455,9 +485,17 @@ function KanbanCard({ card, onMove, onDelete, onOpen }) {
         <div className="kcard-photo"><img src={card.photo} alt="" /></div>
       )}
       <div className="kcard-bottom">
-        {card.tag ? (
-          <span className={'tag ' + card.tag}>{TAGS.find(t => t.id === card.tag)?.label}</span>
-        ) : <span />}
+        <div className="kcard-chips">
+          {card.tag && (
+            <span className={'tag ' + card.tag}>{TAGS.find(t => t.id === card.tag)?.label}</span>
+          )}
+          {card.mins > 0 && (
+            <span className="time-chip" title="Estimated time">⏱ {formatMinutes(card.mins)}</span>
+          )}
+          {card.notes && (
+            <span className="notes-chip" title="Has notes">📝</span>
+          )}
+        </div>
         <div className="kcard-actions">
           {commentCount > 0 && (
             <span className="comment-badge" title={commentCount + ' comments'}>💬 {commentCount}</span>
@@ -481,6 +519,7 @@ function AddCard({ girl, onAdd }) {
   const [title, setTitle] = useState('');
   const [emoji, setEmoji] = useState('');
   const [tag, setTag] = useState('');
+  const [mins, setMins] = useState(0);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -490,11 +529,11 @@ function AddCard({ girl, onAdd }) {
   const commit = () => {
     const t = title.trim();
     if (!t) { reset(); return; }
-    onAdd(girl.id, { title: t, emoji, tag });
+    onAdd(girl.id, { title: t, emoji, tag, mins });
     reset();
   };
   const reset = () => {
-    setTitle(''); setEmoji(''); setTag(''); setExpanded(false);
+    setTitle(''); setEmoji(''); setTag(''); setMins(0); setExpanded(false);
   };
 
   if (!expanded) {
@@ -540,6 +579,17 @@ function AddCard({ girl, onAdd }) {
             >{t.label}</button>
           ))}
         </div>
+        <div className="pick-label">How long?</div>
+        <div className="time-row">
+          {TIME_PRESETS.map(t => (
+            <button
+              key={t.mins}
+              className={'time-pick' + (mins === t.mins ? ' selected' : '')}
+              onClick={() => setMins(mins === t.mins ? 0 : t.mins)}
+              type="button"
+            >{t.label}</button>
+          ))}
+        </div>
         <div className="add-card-buttons">
           <button className="btn ghost small" onClick={reset}>Cancel</button>
           <button className="btn primary small" onClick={commit}>Add card</button>
@@ -555,10 +605,12 @@ function CardDrawer({ card, onClose, onEdit, onDelete, onAddComment, onDeleteCom
   const [author, setAuthor] = useState(() => localStorage.getItem('imhaslyFamilyPlanner.author') || 'mum');
   const [newComment, setNewComment] = useState('');
   const [titleDraft, setTitleDraft] = useState(card.title);
+  const [notesDraft, setNotesDraft] = useState(card.notes || '');
   const [photoError, setPhotoError] = useState('');
 
   useEffect(() => { localStorage.setItem('imhaslyFamilyPlanner.author', author); }, [author]);
   useEffect(() => { setTitleDraft(card.title); }, [card.id, card.title]);
+  useEffect(() => { setNotesDraft(card.notes || ''); }, [card.id]);
 
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -570,6 +622,9 @@ function CardDrawer({ card, onClose, onEdit, onDelete, onAddComment, onDeleteCom
     const t = titleDraft.trim();
     if (t && t !== card.title) onEdit(card.id, { title: t });
     else setTitleDraft(card.title);
+  };
+  const commitNotes = () => {
+    if (notesDraft !== (card.notes || '')) onEdit(card.id, { notes: notesDraft });
   };
   const commitComment = () => {
     const t = newComment.trim();
@@ -638,6 +693,32 @@ function CardDrawer({ card, onClose, onEdit, onDelete, onAddComment, onDeleteCom
                 >{t.label}</button>
               ))}
             </div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="section-label">Estimated time</div>
+            <div className="time-row">
+              {TIME_PRESETS.map(t => (
+                <button
+                  key={t.mins}
+                  className={'time-pick' + (card.mins === t.mins ? ' selected' : '')}
+                  onClick={() => onEdit(card.id, { mins: card.mins === t.mins ? 0 : t.mins })}
+                  type="button"
+                >{t.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="section-label">Notes</div>
+            <textarea
+              className="notes-area"
+              placeholder="Add any details — steps, ideas, what you need…"
+              value={notesDraft}
+              onChange={e => setNotesDraft(e.target.value)}
+              onBlur={commitNotes}
+              rows={3}
+            />
           </div>
 
           <div className="drawer-section">
@@ -726,6 +807,21 @@ function randomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function authorLabel(id) {
   return AUTHORS.find(a => a.id === id)?.label || id || '?';
+}
+
+function formatMinutes(m) {
+  if (!m) return '';
+  if (m === 480) return 'all day';
+  if (m === 240) return 'half day';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  if (rem === 0) return h + 'h';
+  return h + 'h ' + rem + 'm';
+}
+
+function sumMins(cards) {
+  return cards.reduce((acc, c) => acc + (c.mins || 0), 0);
 }
 
 function formatTime(ms) {
