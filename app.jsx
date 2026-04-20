@@ -71,6 +71,7 @@ function normalizeState(s) {
   return {
     ...s,
     cards: s.cards.map(c => ({ comments: [], photo: null, mins: 0, notes: '', ...c })),
+    events: Array.isArray(s.events) ? s.events : [],
   };
 }
 
@@ -134,6 +135,7 @@ function loadState() {
       if (parsed && Array.isArray(parsed.cards)) {
         parsed.cards = parsed.cards.map(c => ({ comments: [], photo: null, mins: 0, notes: '', ...c }));
       }
+      if (parsed && !Array.isArray(parsed.events)) parsed.events = [];
       return parsed;
     }
   } catch (e) {}
@@ -149,6 +151,7 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 function seedState() {
   return {
     activeGirl: 'orla',
+    events: [],
     cards: [
       // Orla — 14
       { id: uid(), girl: 'orla',  column: 'todo',  title: 'Sketchbook page — seascape',      tag: 'fun',      emoji: '🎨', mins: 30,  order: 0, comments: [], photo: null },
@@ -262,13 +265,21 @@ function App() {
   const cardsFor = (girlId) => state.cards.filter(c => c.girl === girlId);
   const openCard = state.cards.find(c => c.id === openCardId) || null;
 
+  const pushEvent = (s, ev) => ({
+    ...s,
+    events: [{ id: uid(), at: Date.now(), ...ev }, ...(s.events || [])].slice(0, 100),
+  });
+
   const addCard = (girlId, card) => {
-    const cards = state.cards.filter(c => c.girl === girlId && c.column === 'todo');
-    const maxOrder = cards.length ? Math.max(...cards.map(c => c.order)) : -1;
-    setState(s => ({
-      ...s,
-      cards: [...s.cards, { id: uid(), girl: girlId, column: 'todo', order: maxOrder + 1, comments: [], photo: null, mins: 0, notes: '', ...card }]
-    }));
+    setState(s => {
+      const cards = s.cards.filter(c => c.girl === girlId && c.column === 'todo');
+      const maxOrder = cards.length ? Math.max(...cards.map(c => c.order)) : -1;
+      const newCard = { id: uid(), girl: girlId, column: 'todo', order: maxOrder + 1, comments: [], photo: null, mins: 0, notes: '', ...card };
+      return pushEvent(
+        { ...s, cards: [...s.cards, newCard] },
+        { girl: girlId, type: 'add', title: newCard.title, cardId: newCard.id }
+      );
+    });
   };
 
   const moveCard = (cardId, toColumn) => {
@@ -277,34 +288,58 @@ function App() {
       if (!card) return s;
       const others = s.cards.filter(c => c.girl === card.girl && c.column === toColumn);
       const maxOrder = others.length ? Math.max(...others.map(c => c.order)) : -1;
-      return {
+      const next = {
         ...s,
         cards: s.cards.map(c =>
           c.id === cardId ? { ...c, column: toColumn, order: maxOrder + 1 } : c
         )
       };
+      return pushEvent(next, { girl: card.girl, type: 'move', title: card.title, to: toColumn, cardId });
     });
   };
 
   const deleteCard = (cardId) => {
-    setState(s => ({ ...s, cards: s.cards.filter(c => c.id !== cardId) }));
+    setState(s => {
+      const card = s.cards.find(c => c.id === cardId);
+      const next = { ...s, cards: s.cards.filter(c => c.id !== cardId) };
+      return card
+        ? pushEvent(next, { girl: card.girl, type: 'delete', title: card.title })
+        : next;
+    });
   };
 
   const editCard = (cardId, patch) => {
-    setState(s => ({
-      ...s,
-      cards: s.cards.map(c => c.id === cardId ? { ...c, ...patch } : c)
-    }));
+    setState(s => {
+      const card = s.cards.find(c => c.id === cardId);
+      const next = {
+        ...s,
+        cards: s.cards.map(c => c.id === cardId ? { ...c, ...patch } : c)
+      };
+      if (!card) return next;
+      // Log noteworthy edits only: photo added, title changed
+      if ('photo' in patch && patch.photo && !card.photo) {
+        return pushEvent(next, { girl: card.girl, type: 'photo', title: card.title, cardId });
+      }
+      if ('title' in patch && patch.title !== card.title) {
+        return pushEvent(next, { girl: card.girl, type: 'edit', title: patch.title, oldTitle: card.title, cardId });
+      }
+      return next;
+    });
   };
 
   const addComment = (cardId, text, by) => {
     const comment = { id: uid(), text, by, at: Date.now() };
-    setState(s => ({
-      ...s,
-      cards: s.cards.map(c =>
-        c.id === cardId ? { ...c, comments: [...(c.comments || []), comment] } : c
-      )
-    }));
+    setState(s => {
+      const card = s.cards.find(c => c.id === cardId);
+      const next = {
+        ...s,
+        cards: s.cards.map(c =>
+          c.id === cardId ? { ...c, comments: [...(c.comments || []), comment] } : c
+        )
+      };
+      if (!card) return next;
+      return pushEvent(next, { girl: card.girl, type: 'comment', title: card.title, by, cardId });
+    });
   };
 
   const deleteComment = (cardId, commentId) => {
@@ -384,6 +419,7 @@ function App() {
         <GirlBoard
           girl={GIRLS.find(g => g.id === view)}
           cards={cardsFor(view)}
+          events={state.events}
           onAdd={addCard}
           onMove={moveCard}
           onDelete={deleteCard}
@@ -422,6 +458,66 @@ function App() {
       )}
     </div>
   );
+}
+
+/* ───── Activity feed ───── */
+
+function Activity({ events, girl, compact, limit }) {
+  const max = limit || (compact ? 4 : 8);
+  const filtered = (events || []).filter(e => !girl || e.girl === girl).slice(0, max);
+  if (filtered.length === 0) {
+    return (
+      <div className="activity-empty">
+        Nothing yet — cards, moves and comments will show up here.
+      </div>
+    );
+  }
+  return (
+    <ul className="activity-list">
+      {filtered.map(e => (
+        <li key={e.id} className={'activity-item type-' + e.type}>
+          <span className={'activity-avatar by-' + e.girl}>
+            {GIRLS.find(g => g.id === e.girl)?.initial || '✦'}
+          </span>
+          <div className="activity-body">
+            <div className="activity-text">
+              {!girl && <strong>{GIRLS.find(g => g.id === e.girl)?.name} </strong>}
+              {renderEventText(e)}
+            </div>
+            <div className="activity-time">{formatTime(e.at)}</div>
+          </div>
+          <span className="activity-icon">{iconForEvent(e)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function renderEventText(e) {
+  switch (e.type) {
+    case 'add':     return <>added <em>“{e.title}”</em></>;
+    case 'move':
+      if (e.to === 'done')   return <>completed <em>“{e.title}”</em></>;
+      if (e.to === 'doing')  return <>started <em>“{e.title}”</em></>;
+      return <>moved <em>“{e.title}”</em> back to to-do</>;
+    case 'delete':  return <>removed <em>“{e.title}”</em></>;
+    case 'edit':    return <>renamed a card to <em>“{e.title}”</em></>;
+    case 'comment': return <><strong>{authorLabel(e.by)}</strong> commented on <em>“{e.title}”</em></>;
+    case 'photo':   return <>added a photo to <em>“{e.title}”</em></>;
+    default:        return e.title;
+  }
+}
+
+function iconForEvent(e) {
+  switch (e.type) {
+    case 'add':     return '🌱';
+    case 'move':    return e.to === 'done' ? '✨' : e.to === 'doing' ? '🚀' : '↩';
+    case 'delete':  return '🗑';
+    case 'edit':    return '✏';
+    case 'comment': return '💬';
+    case 'photo':   return '📷';
+    default:        return '•';
+  }
 }
 
 /* ───── Sync status badge ───── */
@@ -514,18 +610,31 @@ function FamilyOverview({ state, onPick }) {
                     </ul>
                   )}
                 </div>
+
+                <div className="family-activity">
+                  <div className="doing-label">Latest</div>
+                  <Activity events={state.events} girl={g.id} compact limit={3} />
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      <section className="activity-card card">
+        <div className="card-header">
+          <h3 className="card-title">Everyone — recent activity</h3>
+          <span className="card-sub">combined feed</span>
+        </div>
+        <Activity events={state.events} limit={10} />
+      </section>
     </>
   );
 }
 
 /* ───── Girl board ───── */
 
-function GirlBoard({ girl, cards, onAdd, onMove, onDelete, onOpen }) {
+function GirlBoard({ girl, cards, events, onAdd, onMove, onDelete, onOpen }) {
   const todoCount = cards.filter(c => c.column === 'todo').length;
   const doingCount = cards.filter(c => c.column === 'doing').length;
   const doneCount = cards.filter(c => c.column === 'done').length;
@@ -575,6 +684,14 @@ function GirlBoard({ girl, cards, onAdd, onMove, onDelete, onOpen }) {
           />
         ))}
       </div>
+
+      <section className="activity-card card">
+        <div className="card-header">
+          <h3 className="card-title">{girl.name}'s recent activity</h3>
+          <span className="card-sub">last updates</span>
+        </div>
+        <Activity events={events} girl={girl.id} />
+      </section>
     </>
   );
 }
