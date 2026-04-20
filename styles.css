@@ -131,6 +131,35 @@ input, textarea, select { font-family: inherit; }
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--girl);
 }
+
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid var(--line);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--ink-2);
+  margin-left: 6px;
+  text-transform: uppercase;
+}
+.sync-badge .sync-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.sync-badge.connected  .sync-dot { background: #6fae6a; }
+.sync-badge.connecting .sync-dot { background: #d8a85c; animation: sync-pulse 1.2s ease-in-out infinite; }
+.sync-badge.offline    .sync-dot { background: #c58b8b; }
+.sync-badge.local      .sync-dot { background: var(--ink-3); }
+@keyframes sync-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1;   }
+}
 .brand h1 {
   font-family: var(--font-serif);
   font-size: 44px;

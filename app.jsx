@@ -6,6 +6,74 @@ const { useState, useEffect, useRef, useMemo } = React;
 
 const STORAGE_KEY = 'imhaslyFamilyPlanner.v1';
 
+/* ───── Supabase sync (real-time, multi-device) ───── */
+
+const SUPABASE_URL = 'https://fybjacvlmtvhahxtcgjv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5YmphY3ZsbXR2aGFoeHRjZ2p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNTgyNzUsImV4cCI6MjA4OTkzNDI3NX0.JxjKIXx4hruFSeNdKnCtBNaI6b4m8dz6_CwzCn676jw';
+const FAMILY_ID = 'imhasly';
+
+const supabaseClient = (() => {
+  try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  } catch (e) { console.error('Supabase init failed', e); }
+  return null;
+})();
+
+async function syncLoad() {
+  if (!supabaseClient) return { ok: false, reason: 'no-client' };
+  try {
+    const { data, error } = await supabaseClient
+      .from('family_state')
+      .select('data, updated_at')
+      .eq('family_id', FAMILY_ID)
+      .maybeSingle();
+    if (error) return { ok: false, reason: error.code || error.message };
+    return { ok: true, data: data?.data || null, updatedAt: data?.updated_at || null };
+  } catch (e) {
+    return { ok: false, reason: e.message || 'unknown' };
+  }
+}
+
+async function syncSave(state) {
+  if (!supabaseClient) return { ok: false };
+  try {
+    const { error } = await supabaseClient
+      .from('family_state')
+      .upsert({ family_id: FAMILY_ID, data: state, updated_at: new Date().toISOString() });
+    if (error) return { ok: false, reason: error.code || error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e.message || 'unknown' };
+  }
+}
+
+function syncSubscribe(onRemote) {
+  if (!supabaseClient) return () => {};
+  const channel = supabaseClient
+    .channel('family_state:' + FAMILY_ID)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'family_state',
+      filter: 'family_id=eq.' + FAMILY_ID,
+    }, (payload) => {
+      const next = payload.new && payload.new.data;
+      if (next) onRemote(next);
+    })
+    .subscribe();
+  return () => { try { supabaseClient.removeChannel(channel); } catch (e) {} };
+}
+
+function normalizeState(s) {
+  if (!s || !Array.isArray(s.cards)) return null;
+  return {
+    ...s,
+    cards: s.cards.map(c => ({ comments: [], photo: null, mins: 0, notes: '', ...c })),
+  };
+}
+
 const GIRLS = [
   { id: 'orla',  name: 'Orla',  age: 14, initial: 'O' },
   { id: 'eliza', name: 'Eliza', age: 12, initial: 'E' },
@@ -107,12 +175,89 @@ function App() {
   const [state, setState] = useState(loadState);
   const [view, setView] = useState('family'); // 'family' | 'orla' | 'eliza' | 'maya'
   const [openCardId, setOpenCardId] = useState(null);
+  const [syncStatus, setSyncStatus] = useState(supabaseClient ? 'connecting' : 'local-only');
 
+  // Refs used to break the save→remote→save loop.
+  const lastSyncedJsonRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const bootstrappedRef = useRef(false);
+
+  // Always persist to localStorage (fast + offline cache)
   useEffect(() => { saveState(state); }, [state]);
 
   useEffect(() => {
     document.body.className = 'theme-' + view;
   }, [view]);
+
+  // Bootstrap: pull latest from Supabase; if empty, push local.
+  useEffect(() => {
+    if (!supabaseClient) return;
+    (async () => {
+      const res = await syncLoad();
+      if (!res.ok) {
+        setSyncStatus('offline');
+        console.warn('Supabase load failed:', res.reason);
+        bootstrappedRef.current = true;
+        return;
+      }
+      const remote = normalizeState(res.data);
+      if (remote) {
+        lastSyncedJsonRef.current = JSON.stringify(remote);
+        setState(remote);
+      } else {
+        // Row exists but no cards yet — push current local state up
+        const push = await syncSave(state);
+        if (push.ok) lastSyncedJsonRef.current = JSON.stringify(state);
+      }
+      setSyncStatus('connected');
+      bootstrappedRef.current = true;
+    })();
+  }, []);
+
+  // Debounced save to Supabase on any state change, skipping remote-sourced updates.
+  useEffect(() => {
+    if (!supabaseClient || !bootstrappedRef.current) return;
+    const json = JSON.stringify(state);
+    if (json === lastSyncedJsonRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      const res = await syncSave(state);
+      if (res.ok) {
+        lastSyncedJsonRef.current = json;
+        setSyncStatus('connected');
+      } else {
+        setSyncStatus('offline');
+      }
+    }, 500);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [state]);
+
+  // Real-time subscription — apply remote changes locally, skipping our own echoes.
+  useEffect(() => {
+    if (!supabaseClient) return;
+    const unsub = syncSubscribe((remote) => {
+      const normalized = normalizeState(remote);
+      if (!normalized) return;
+      const json = JSON.stringify(normalized);
+      if (json === lastSyncedJsonRef.current) return;
+      lastSyncedJsonRef.current = json;
+      setState(normalized);
+    });
+    return unsub;
+  }, []);
+
+  // Online / offline hints
+  useEffect(() => {
+    const onOnline  = () => { if (supabaseClient) setSyncStatus('connecting'); };
+    const onOffline = () => setSyncStatus('offline');
+    window.addEventListener('online',  onOnline);
+    window.addEventListener('offline', onOffline);
+    if (!navigator.onLine) setSyncStatus('offline');
+    return () => {
+      window.removeEventListener('online',  onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   const cardsFor = (girlId) => state.cards.filter(c => c.girl === girlId);
   const openCard = state.cards.find(c => c.id === openCardId) || null;
@@ -207,6 +352,7 @@ function App() {
           <div className="eyebrow">
             <span className="dot" />
             The Imhasly Family · kanban
+            <SyncBadge status={syncStatus} />
           </div>
           <h1>The Imhasly <em>Family Planner</em></h1>
         </div>
@@ -275,6 +421,23 @@ function App() {
         />
       )}
     </div>
+  );
+}
+
+/* ───── Sync status badge ───── */
+
+function SyncBadge({ status }) {
+  const map = {
+    'connecting': { cls: 'connecting', label: 'syncing…' },
+    'connected':  { cls: 'connected',  label: 'in sync'  },
+    'offline':    { cls: 'offline',    label: 'offline'  },
+    'local-only': { cls: 'local',      label: 'local'    },
+  };
+  const v = map[status] || map['local-only'];
+  return (
+    <span className={'sync-badge ' + v.cls} title={'Live sync status: ' + v.label}>
+      <span className="sync-dot" /> {v.label}
+    </span>
   );
 }
 
