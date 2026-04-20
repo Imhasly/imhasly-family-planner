@@ -25,6 +25,14 @@ const TAGS = [
   { id: 'fun',      label: 'Fun'      },
 ];
 
+const AUTHORS = [
+  { id: 'orla',  label: 'Orla'  },
+  { id: 'eliza', label: 'Eliza' },
+  { id: 'maya',  label: 'Maya'  },
+  { id: 'mum',   label: 'Mum'   },
+  { id: 'dad',   label: 'Dad'   },
+];
+
 const EMOJIS = [
   '🎨','🎸','📚','⚽','🧁','🌳','🎮','🧩',
   '🎭','🏊','🔬','🌱','🎲','🚴','🍳','🐕',
@@ -43,7 +51,13 @@ const GREETINGS = {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.cards)) {
+        parsed.cards = parsed.cards.map(c => ({ comments: [], photo: null, ...c }));
+      }
+      return parsed;
+    }
   } catch (e) {}
   return seedState();
 }
@@ -82,6 +96,7 @@ function seedState() {
 function App() {
   const [state, setState] = useState(loadState);
   const [view, setView] = useState('family'); // 'family' | 'orla' | 'eliza' | 'maya'
+  const [openCardId, setOpenCardId] = useState(null);
 
   useEffect(() => { saveState(state); }, [state]);
 
@@ -90,13 +105,14 @@ function App() {
   }, [view]);
 
   const cardsFor = (girlId) => state.cards.filter(c => c.girl === girlId);
+  const openCard = state.cards.find(c => c.id === openCardId) || null;
 
   const addCard = (girlId, card) => {
     const cards = state.cards.filter(c => c.girl === girlId && c.column === 'todo');
     const maxOrder = cards.length ? Math.max(...cards.map(c => c.order)) : -1;
     setState(s => ({
       ...s,
-      cards: [...s.cards, { id: uid(), girl: girlId, column: 'todo', order: maxOrder + 1, ...card }]
+      cards: [...s.cards, { id: uid(), girl: girlId, column: 'todo', order: maxOrder + 1, comments: [], photo: null, ...card }]
     }));
   };
 
@@ -118,6 +134,34 @@ function App() {
   const deleteCard = (cardId) => {
     setState(s => ({ ...s, cards: s.cards.filter(c => c.id !== cardId) }));
   };
+
+  const editCard = (cardId, patch) => {
+    setState(s => ({
+      ...s,
+      cards: s.cards.map(c => c.id === cardId ? { ...c, ...patch } : c)
+    }));
+  };
+
+  const addComment = (cardId, text, by) => {
+    const comment = { id: uid(), text, by, at: Date.now() };
+    setState(s => ({
+      ...s,
+      cards: s.cards.map(c =>
+        c.id === cardId ? { ...c, comments: [...(c.comments || []), comment] } : c
+      )
+    }));
+  };
+
+  const deleteComment = (cardId, commentId) => {
+    setState(s => ({
+      ...s,
+      cards: s.cards.map(c =>
+        c.id === cardId ? { ...c, comments: (c.comments || []).filter(x => x.id !== commentId) } : c
+      )
+    }));
+  };
+
+  const setPhoto = (cardId, dataUrl) => editCard(cardId, { photo: dataUrl });
 
   return (
     <div className="app">
@@ -160,12 +204,25 @@ function App() {
           onAdd={addCard}
           onMove={moveCard}
           onDelete={deleteCard}
+          onOpen={setOpenCardId}
         />
       )}
 
       <div className="footer-note">
-        auto-saved · drag cards between columns · ta-da ✨
+        auto-saved · click a card to edit · drag between columns ✨
       </div>
+
+      {openCard && (
+        <CardDrawer
+          card={openCard}
+          onClose={() => setOpenCardId(null)}
+          onEdit={editCard}
+          onDelete={deleteCard}
+          onAddComment={addComment}
+          onDeleteComment={deleteComment}
+          onSetPhoto={setPhoto}
+        />
+      )}
     </div>
   );
 }
@@ -241,7 +298,7 @@ function FamilyOverview({ state, onPick }) {
 
 /* ───── Girl board ───── */
 
-function GirlBoard({ girl, cards, onAdd, onMove, onDelete }) {
+function GirlBoard({ girl, cards, onAdd, onMove, onDelete, onOpen }) {
   const todoCount = cards.filter(c => c.column === 'todo').length;
   const doingCount = cards.filter(c => c.column === 'doing').length;
   const doneCount = cards.filter(c => c.column === 'done').length;
@@ -280,6 +337,7 @@ function GirlBoard({ girl, cards, onAdd, onMove, onDelete }) {
             onAdd={onAdd}
             onMove={onMove}
             onDelete={onDelete}
+            onOpen={onOpen}
           />
         ))}
       </div>
@@ -289,7 +347,7 @@ function GirlBoard({ girl, cards, onAdd, onMove, onDelete }) {
 
 /* ───── Column ───── */
 
-function Column({ column, girl, cards, onAdd, onMove, onDelete }) {
+function Column({ column, girl, cards, onAdd, onMove, onDelete, onOpen }) {
   const [dragOver, setDragOver] = useState(false);
 
   const handleDragOver = (e) => {
@@ -332,6 +390,7 @@ function Column({ column, girl, cards, onAdd, onMove, onDelete }) {
             card={card}
             onMove={onMove}
             onDelete={onDelete}
+            onOpen={onOpen}
           />
         ))}
       </div>
@@ -345,7 +404,7 @@ function Column({ column, girl, cards, onAdd, onMove, onDelete }) {
 
 /* ───── Kanban card ───── */
 
-function KanbanCard({ card, onMove, onDelete }) {
+function KanbanCard({ card, onMove, onDelete, onOpen }) {
   const [sparkle, setSparkle] = useState(false);
   const prevColumn = useRef(card.column);
 
@@ -366,6 +425,7 @@ function KanbanCard({ card, onMove, onDelete }) {
   const handleDragEnd = (e) => {
     e.currentTarget.classList.remove('dragging');
   };
+  const stop = (e) => e.stopPropagation();
 
   const moveLabels = {
     todo:  { prev: null,    next: 'doing' },
@@ -373,6 +433,7 @@ function KanbanCard({ card, onMove, onDelete }) {
     done:  { prev: 'doing',  next: null    },
   };
   const moves = moveLabels[card.column];
+  const commentCount = (card.comments || []).length;
 
   return (
     <div
@@ -380,22 +441,32 @@ function KanbanCard({ card, onMove, onDelete }) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onClick={() => onOpen(card.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter') onOpen(card.id); }}
     >
       <div className="kcard-top">
         {card.emoji && <div className="kcard-emoji">{card.emoji}</div>}
         <div className="kcard-title">{card.title}</div>
-        <button className="kcard-close" onClick={() => onDelete(card.id)} aria-label="Delete">×</button>
+        <button className="kcard-close" onClick={e => { stop(e); onDelete(card.id); }} aria-label="Delete">×</button>
       </div>
+      {card.photo && (
+        <div className="kcard-photo"><img src={card.photo} alt="" /></div>
+      )}
       <div className="kcard-bottom">
         {card.tag ? (
           <span className={'tag ' + card.tag}>{TAGS.find(t => t.id === card.tag)?.label}</span>
         ) : <span />}
         <div className="kcard-actions">
+          {commentCount > 0 && (
+            <span className="comment-badge" title={commentCount + ' comments'}>💬 {commentCount}</span>
+          )}
           {moves.prev && (
-            <button className="kcard-move" onClick={() => onMove(card.id, moves.prev)} title="Move back" aria-label="Move back">‹</button>
+            <button className="kcard-move" onClick={e => { stop(e); onMove(card.id, moves.prev); }} title="Move back" aria-label="Move back">‹</button>
           )}
           {moves.next && (
-            <button className="kcard-move" onClick={() => onMove(card.id, moves.next)} title="Move forward" aria-label="Move forward">›</button>
+            <button className="kcard-move" onClick={e => { stop(e); onMove(card.id, moves.next); }} title="Move forward" aria-label="Move forward">›</button>
           )}
         </div>
       </div>
@@ -478,6 +549,173 @@ function AddCard({ girl, onAdd }) {
   );
 }
 
+/* ───── Card drawer (edit / photo / comments) ───── */
+
+function CardDrawer({ card, onClose, onEdit, onDelete, onAddComment, onDeleteComment, onSetPhoto }) {
+  const [author, setAuthor] = useState(() => localStorage.getItem('imhaslyFamilyPlanner.author') || 'mum');
+  const [newComment, setNewComment] = useState('');
+  const [titleDraft, setTitleDraft] = useState(card.title);
+  const [photoError, setPhotoError] = useState('');
+
+  useEffect(() => { localStorage.setItem('imhaslyFamilyPlanner.author', author); }, [author]);
+  useEffect(() => { setTitleDraft(card.title); }, [card.id, card.title]);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const commitTitle = () => {
+    const t = titleDraft.trim();
+    if (t && t !== card.title) onEdit(card.id, { title: t });
+    else setTitleDraft(card.title);
+  };
+  const commitComment = () => {
+    const t = newComment.trim();
+    if (!t) return;
+    onAddComment(card.id, t, author);
+    setNewComment('');
+  };
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoError('');
+    try {
+      const url = await resizeImage(file);
+      onSetPhoto(card.id, url);
+    } catch (err) {
+      setPhotoError('Could not load that image. Try a different one?');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const comments = card.comments || [];
+
+  return (
+    <div className="drawer-overlay" onClick={onClose}>
+      <div className="drawer" onClick={e => e.stopPropagation()}>
+        <div className="drawer-head">
+          <div className="drawer-head-left">
+            {card.emoji && <span className="drawer-emoji">{card.emoji}</span>}
+            <input
+              className="drawer-title"
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => { if (e.key === 'Enter') { commitTitle(); e.target.blur(); } }}
+              placeholder="Card title"
+            />
+          </div>
+          <button className="close-x" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        <div className="drawer-body">
+          <div className="drawer-section">
+            <div className="section-label">Emoji</div>
+            <div className="emoji-row">
+              {EMOJIS.map(em => (
+                <button
+                  key={em}
+                  className={'emoji-pick' + (card.emoji === em ? ' selected' : '')}
+                  onClick={() => onEdit(card.id, { emoji: card.emoji === em ? '' : em })}
+                  type="button"
+                >{em}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="section-label">Tag</div>
+            <div className="tag-row">
+              {TAGS.map(t => (
+                <button
+                  key={t.id}
+                  className={'tag-pick' + (card.tag === t.id ? ' selected' : '')}
+                  onClick={() => onEdit(card.id, { tag: card.tag === t.id ? '' : t.id })}
+                  type="button"
+                >{t.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="section-label">Photo</div>
+            {card.photo ? (
+              <div className="photo-wrap">
+                <img src={card.photo} alt="Attached" />
+                <div className="photo-actions">
+                  <label className="btn secondary small">
+                    Replace
+                    <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+                  </label>
+                  <button className="btn ghost small" onClick={() => onSetPhoto(card.id, null)}>Remove</button>
+                </div>
+              </div>
+            ) : (
+              <label className="photo-upload">
+                <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+                <div className="photo-upload-box">
+                  <span className="photo-upload-icon">📷</span>
+                  <span>Add a photo</span>
+                </div>
+              </label>
+            )}
+            {photoError && <div className="photo-error">{photoError}</div>}
+          </div>
+
+          <div className="drawer-section">
+            <div className="section-label">Comments {comments.length > 0 && `(${comments.length})`}</div>
+            <div className="comments-list">
+              {comments.length === 0 && (
+                <div className="comment-empty">No comments yet — say something nice ✨</div>
+              )}
+              {comments.map(c => (
+                <div key={c.id} className="comment">
+                  <div className={'comment-avatar by-' + c.by}>{authorLabel(c.by)[0]}</div>
+                  <div className="comment-body">
+                    <div className="comment-meta">
+                      <strong>{authorLabel(c.by)}</strong>
+                      <span className="comment-time">{formatTime(c.at)}</span>
+                    </div>
+                    <div className="comment-text">{c.text}</div>
+                  </div>
+                  <button
+                    className="comment-del"
+                    onClick={() => onDeleteComment(card.id, c.id)}
+                    aria-label="Delete comment"
+                  >×</button>
+                </div>
+              ))}
+            </div>
+            <div className="comment-compose">
+              <select value={author} onChange={e => setAuthor(e.target.value)} aria-label="Commenter">
+                {AUTHORS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+              </select>
+              <input
+                placeholder="Add a comment…"
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') commitComment(); }}
+              />
+              <button className="btn primary small" onClick={commitComment}>Post</button>
+            </div>
+          </div>
+
+          <div className="drawer-footer">
+            <button
+              className="btn ghost small"
+              onClick={() => { if (confirm('Delete this card?')) { onDelete(card.id); onClose(); } }}
+            >Delete card</button>
+            <button className="btn secondary small" onClick={onClose}>Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ───── Utilities ───── */
 
 function todayString() {
@@ -485,6 +723,44 @@ function todayString() {
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 function randomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function authorLabel(id) {
+  return AUTHORS.find(a => a.id === id)?.label || id || '?';
+}
+
+function formatTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return diffMin + 'm ago';
+  if (diffMin < 1440) return Math.floor(diffMin / 60) + 'h ago';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+function resizeImage(file, maxDim = 1400, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 /* ───── Mount ───── */
 

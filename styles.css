@@ -679,6 +679,288 @@ input, textarea, select { font-family: inherit; }
   opacity: 0.7;
 }
 
+/* ───── Drawer (card detail / edit) ───── */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 42, 51, 0.38);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.18s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.drawer {
+  background: var(--card);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line);
+  animation: slideUp 0.22s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.drawer-head {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+.drawer-head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.drawer-emoji { font-size: 28px; line-height: 1; flex-shrink: 0; }
+.drawer-title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--girl-deep);
+  font-weight: 400;
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 4px 2px;
+  border-bottom: 1px dashed transparent;
+  letter-spacing: -0.01em;
+}
+.drawer-title:hover { border-bottom-color: var(--line-2); }
+.drawer-title:focus {
+  outline: none;
+  border-bottom-color: var(--girl);
+}
+
+.close-x {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.close-x:hover { background: var(--girl-wash); color: var(--girl-deep); }
+
+.drawer-body { padding: 18px 22px 22px; }
+.drawer-section { margin-bottom: 22px; }
+.drawer-section:last-child { margin-bottom: 0; }
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+
+.drawer .emoji-row,
+.drawer .tag-row { margin-bottom: 0; }
+
+/* Photo */
+.photo-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.photo-wrap img {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.photo-actions { display: flex; gap: 8px; }
+.photo-upload { display: block; cursor: pointer; }
+.photo-upload-box {
+  border: 2px dashed var(--line-2);
+  border-radius: 12px;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 13px;
+  transition: all 0.15s;
+  background: var(--bg);
+}
+.photo-upload:hover .photo-upload-box {
+  border-color: var(--girl);
+  background: var(--girl-wash-2);
+  color: var(--girl-deep);
+}
+.photo-upload-icon {
+  display: block;
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+.photo-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #a85c5c;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* Photo thumbnail on card */
+.kcard-photo {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.kcard-photo img {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Comments */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.comment {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 10px;
+  align-items: flex-start;
+  transition: background 0.15s;
+}
+.comment:hover { background: var(--girl-wash-2); }
+.comment-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.comment-avatar.by-orla  { background: var(--orla); }
+.comment-avatar.by-eliza { background: var(--eliza); }
+.comment-avatar.by-maya  { background: var(--maya); }
+.comment-avatar.by-mum   { background: #9c7ab8; }
+.comment-avatar.by-dad   { background: #7a96b8; }
+
+.comment-body { flex: 1; min-width: 0; }
+.comment-meta {
+  font-size: 11px;
+  color: var(--ink-2);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.comment-meta strong { color: var(--ink); font-weight: 600; }
+.comment-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+}
+.comment-text {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.comment-del {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.comment:hover .comment-del { opacity: 1; }
+.comment-del:hover { background: #fff; color: var(--girl-deep); }
+.comment-empty {
+  text-align: center;
+  padding: 14px 12px;
+  color: var(--ink-3);
+  font-style: italic;
+  font-size: 13px;
+  background: var(--bg);
+  border-radius: 10px;
+}
+
+.comment-compose {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.comment-compose select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: #fff;
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.comment-compose input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: #fff;
+  font-size: 13px;
+}
+.comment-compose select:focus,
+.comment-compose input:focus {
+  outline: none;
+  border-color: var(--girl);
+  box-shadow: 0 0 0 3px var(--girl-wash);
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+/* Comment count badge on cards */
+.comment-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  padding: 2px 6px;
+  letter-spacing: 0.06em;
+}
+
 /* ───── Responsive ───── */
 @media (max-width: 920px) {
   .board { grid-template-columns: 1fr; }
